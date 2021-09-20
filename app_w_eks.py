@@ -138,7 +138,7 @@ def mean_table(diagnostics):
     }
     
     for sensor in diagnostics.lista_czujnikow:
-        table["typ pomiaru"].append(sensor.measured)
+        table["typ pomiaru"].append(f"{sensor.measured} [{sensor.unit}]")
         table["średnia"].append(sensor.value_series.mean())
         
     return pd.DataFrame(table).set_index("typ pomiaru")
@@ -168,7 +168,7 @@ def wykres(czujnik):
 
 device_list, presets = init()
 
-st.set_page_config(layout="wide", page_title='test')
+st.set_page_config(layout="wide", page_title='Dashboard eksploatacyjny')
     
 c1,c2,c3 = st.columns((1,2,2))
 
