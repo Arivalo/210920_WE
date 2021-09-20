@@ -72,7 +72,7 @@ def download_data(url, haslo=st.secrets['password'], login=st.secrets['username'
 def utworz_url(data_od, data_do, id):
     str_base = st.secrets['url']
     data_do_parted = str(data_do).split("-")
-    str_out = f"{str_base}?from={data_od}T08:00:00Z&to={data_do}T15:00:00Z&monitoredId={id}&limit=10000000"
+    str_out = f"{str_base}?from={data_od}T04:00:00Z&to={data_do}T12:00:00Z&monitoredId={id}&limit=10000000"
     return str_out
     
 def service_available(num_retry=5):
@@ -141,7 +141,7 @@ def mean_table(diagnostics):
         table["typ pomiaru"].append(f"{sensor.measured} [{sensor.unit}]")
         table["średnia"].append(sensor.value_series.mean())
         
-    return pd.DataFrame(table).set_index("typ pomiaru")
+    return pd.DataFrame(table).set_index("typ pomiaru").round(1).astype(str)
     
     
 def wykres(czujnik):
@@ -174,7 +174,7 @@ c1,c2,c3 = st.columns((1,2,2))
 
 device = c1.selectbox("Wybierz urządzenie", device_list, help="Wybierz urządzenie którego dane chcesz wyświetlić")
 
-data = c1.date_input("Wybierz datę", value=dt.date(2021,8,3), min_value=dt.date(2021,7,1), max_value=dt.date.today(), help="Wybierz dzień który chcesz wyświetlić")
+data = c1.date_input("Wybierz datę", value=dt.date.today(), min_value=dt.date(2021,7,1), max_value=dt.date.today(), help="Wybierz dzień który chcesz wyświetlić")
 
 device_config = presets[device_list[device]['lp']]
 
@@ -193,6 +193,8 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow):
     temp_fig = wykres(sensor)
     
     cols[i%3].write(temp_fig)
+    
+#st.help(st.selectbox)
 
 
     
