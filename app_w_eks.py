@@ -158,9 +158,8 @@ def wykres(czujnik, filtruj=False):
     
     xfmt = mdates.DateFormatter('%H:%M')
     
-    data_series = savgol_filter(czujnik.value_series, 101, 1)
-    
     try:
+        data_series = savgol_filter(czujnik.value_series, 101, 1)
         if filtruj:
             ax.plot(czujnik.dt_series, czujnik.value_series, c='gray', alpha=0.6)
         ax.plot(czujnik.dt_series, data_series)
