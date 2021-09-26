@@ -12,6 +12,8 @@ import matplotlib.dates as mdates
 from matplotlib.ticker import MaxNLocator
 import preset_loader as pre_load
 
+from scipy.signal import savgol_filter
+
 from diagnostyka_czujnikow import czujnik
 from diagnostyka_czujnikow import system
 
@@ -65,7 +67,10 @@ def download_data(url, haslo=st.secrets['password'], login=st.secrets['username'
             print(f'Url error: {url}')
             
         df.ffill(inplace=True)
-        df['updatedAt'] = pd.to_datetime(df['updatedAt']).dt.tz_localize(None)         
+        try:
+            df['updatedAt'] = pd.to_datetime(df['updatedAt']).dt.tz_localize(None)
+        except KeyError:
+            return pd.DataFrame()
             
     return df
     
@@ -113,7 +118,10 @@ def prepare_data(date, config, xt_to_V=200):
     
     diagnostyka = system.SystemDiagnozy()
     
-    date_time = pd.to_datetime(data["updatedAt"]).dt.tz_localize(None)
+    try:
+        date_time = pd.to_datetime(data["updatedAt"]).dt.tz_localize(None)
+    except KeyError:
+        date_time = None
     
     for sensor in config["config"]:
     
@@ -144,13 +152,26 @@ def mean_table(diagnostics):
     return pd.DataFrame(table).set_index("typ pomiaru").round(1).astype(str)
     
     
-def wykres(czujnik):
+def wykres(czujnik, filtruj=False):
     
     fig, ax = plt.subplots(figsize=(8,5))
     
     xfmt = mdates.DateFormatter('%H:%M')
     
-    ax.plot(czujnik.dt_series, czujnik.value_series)
+    data_series = savgol_filter(czujnik.value_series, 101, 1)
+    
+    try:
+        if filtruj:
+            ax.plot(czujnik.dt_series, czujnik.value_series, c='gray', alpha=0.6)
+        ax.plot(czujnik.dt_series, data_series)
+    except ValueError:
+        pass
+        
+    # poszerzenie limitu na y
+    ylim = plt.ylim()
+    ydelta = (ylim[1] - ylim[0])/2
+    
+    plt.ylim((ylim[0]-ydelta, ylim[-1]+ydelta))
     
     ax.set_xlabel("Czas")
     ax.set_ylabel(f"{czujnik.measured} [{czujnik.unit}]")
@@ -160,8 +181,8 @@ def wykres(czujnik):
     ax.xaxis.set_major_formatter(xfmt)
     
     return fig
-        
-    
+
+
   
 ## MAIN ##
     
@@ -180,6 +201,8 @@ device_config = presets[device_list[device]['lp']]
 
 system_diagnostyki = prepare_data(data, device_config)
 
+plot_real = c1.checkbox("Rysuj niefiltrowane dane", help="Tymczasowa opcja wyboru w celu pokazania stopnia filtrowania oryginalnych danych")
+
 c2.table(mean_table(system_diagnostyki))
 
 c3.table(pd.DataFrame({"i":["TBC" for x  in range(7)], "wskaźniki eksploatacyjne":["-" for x in range(7)]}).set_index("i"))
@@ -190,12 +213,19 @@ c3.table(pd.DataFrame({"i":["TBC" for x  in range(7)], "wskaźniki eksploatacyjn
 cols = st.columns((1,1,1))
 
 for i, sensor in enumerate(system_diagnostyki.lista_czujnikow):
-    temp_fig = wykres(sensor)
+    temp_fig = wykres(sensor, filtruj=plot_real)
     
     cols[i%3].write(temp_fig)
     
 #st.help(st.selectbox)
 
+
+# exp = st.expander("test")
+
+# c1, c2 = exp.columns((1,1))
+
+# c1.write("test")
+# c2.write("Test")
 
     
 
