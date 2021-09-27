@@ -262,6 +262,9 @@ fig, ax = plt.subplots(figsize=(8,5))
     
 xfmt = mdates.DateFormatter('%H:%M')
 
+if plot_real:
+    ax.plot(system_diagnostyki.lista_czujnikow[-1].dt_series.values, system_diagnostyki.lista_czujnikow[-1].value_series.values, label='oryginalny sygnał', c='gray', alpha=0.6)
+
 ax.plot(sig_A_dt, sig_A, label='wilgotność')
 ax.plot(sig_B_dt, sig_B, label='ciśnienie')
 
