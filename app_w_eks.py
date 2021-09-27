@@ -265,8 +265,8 @@ xfmt = mdates.DateFormatter('%H:%M')
 if plot_real:
     ax.plot(system_diagnostyki.lista_czujnikow[-1].dt_series.values, system_diagnostyki.lista_czujnikow[-1].value_series.values, label='oryginalny sygnał', c='gray', alpha=0.6)
 
-ax.plot(sig_A_dt, sig_A, label='wilgotność')
-ax.plot(sig_B_dt, sig_B, label='ciśnienie')
+ax.plot(sig_A_dt, sig_A, label='sygnał A')
+ax.plot(sig_B_dt, sig_B, label='signał B')
 
 plt.title("XT_UAIN_06")
 ax.set_xlabel("Czas")
