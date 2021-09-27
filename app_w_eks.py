@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import pandas as pd
+import numpy as np
 import datetime as dt
 import base64
 import plotly.express as px
@@ -211,7 +212,7 @@ c3.table(pd.DataFrame({"i":["TBC" for x  in range(7)], "wskaźniki eksploatacyjn
 
 cols = st.columns((1,1,1))
 
-for i, sensor in enumerate(system_diagnostyki.lista_czujnikow):
+for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-1]):
     temp_fig = wykres(sensor, filtruj=plot_real)
     
     cols[i%3].write(temp_fig)
@@ -226,6 +227,58 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow):
 # c1.write("test")
 # c2.write("Test")
 
+# TEST ZONE
+def separate_signals(signal, dt_series=None, window=15):
+    
+    sig_len = len(signal)
+    print(sig_len)
+    
+    sig_A, sig_B = [], []
+    
+    if dt_series is not None:
+        sig_A_dt, sig_B_dt = [], []
+    
+    for i in range(0, sig_len, window):
+        
+        sig_temp = signal[i:min(sig_len-1, i+window)]
+        
+        sig_A.append(min(sig_temp))
+        sig_B.append(max(sig_temp))
+        
+        if dt_series is not None:
+            sig_A_dt.append(dt_series[np.argmin(sig_temp)+i])
+            sig_B_dt.append(dt_series[np.argmax(sig_temp)+i])
+    
+    if dt_series is None:
+        return sig_A, sig_B
+        
+    else:
+        return (sig_A, sig_A_dt), (sig_B, sig_B_dt)
+        
+        
+(sig_A, sig_A_dt), (sig_B, sig_B_dt) = separate_signals(system_diagnostyki.lista_czujnikow[-1].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-1].dt_series.values, window=128)
+
+fig, ax = plt.subplots(figsize=(8,5))
+    
+xfmt = mdates.DateFormatter('%H:%M')
+
+ax.plot(sig_A_dt, sig_A, label='wilgotność')
+ax.plot(sig_B_dt, sig_B, label='ciśnienie')
+
+plt.title("XT_UAIN_06")
+ax.set_xlabel("Czas")
+ax.set_ylabel(f"wilgotność/ciśnienie tłoczenia [%/Pa]")
+
+ax.xaxis.set_major_formatter(xfmt)
+
+plt.legend()
+
+# poszerzenie limitu na y
+ylim = plt.ylim()
+ydelta = (ylim[1] - ylim[0])/2
+plt.ylim((ylim[0]-ydelta, ylim[-1]+ydelta))
+
+cols[0].write(fig)
     
 
 
