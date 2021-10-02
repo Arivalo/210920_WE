@@ -229,6 +229,22 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-1]):
 
 # TEST ZONE
 def separate_signals(signal, dt_series=None, window=15):
+    '''
+    Zwraca 2 sygnaly na podstawie jednego sygnalu na zasadzie wyznaczania max i min wartosci z okna o szerokosci "window":
+    - sygnal A - minimum wartosc z okna
+    - sygnal B - maksymalna wartosc z okna
+    
+    jesli podane sa dane sygnalu czasowego (dt_series) dodatkowo zwraca skojarzone z sygnalami A i B probki z tych danych
+    
+    signal <list type>
+    dane sygnalu z którego mają być wydzielone sygnaly max i min
+    
+    dt_series <list type> (default: None)
+    skojarzone z sygnalem "signal" dane
+    
+    window <number> (default:15)
+    szerokosc okien z których bedzie wyciagany max i min
+    '''
     
     sig_len = len(signal)
     print(sig_len)
