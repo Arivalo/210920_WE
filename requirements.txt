@@ -2,3 +2,4 @@ plotly
 matplotlib
 openpyxl
 scipy
+xlsxwriter
