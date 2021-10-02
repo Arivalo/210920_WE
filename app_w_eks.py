@@ -287,7 +287,10 @@ device_config = presets[device_list[device]['lp']]
 system_diagnostyki, dt_series = prepare_data(data, device_config)
 
 if system_diagnostyki.lista_czujnikow[-1].value_series is not None:
-    (sig_A, sig_A_dt), (sig_B, sig_B_dt) = separate_signals(system_diagnostyki.lista_czujnikow[-1].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-1].dt_series.values, window=128)
+    try:
+        (sig_A, sig_A_dt), (sig_B, sig_B_dt) = separate_signals(system_diagnostyki.lista_czujnikow[-1].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-1].dt_series.values, window=128)
+    except AttributeError:
+        (sig_A, sig_A_dt), (sig_B, sig_B_dt) = (None, None), (None, None)
 else:
     (sig_A, sig_A_dt), (sig_B, sig_B_dt) = (None, None), (None, None)
 
