@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import numpy as np
 import datetime as dt
-import base64
+import base64, io
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -25,7 +25,9 @@ def init():
     
     device_list = {preset['nazwa']:{"id":preset['id'], "lp":i} for i, preset in enumerate(presets)}
     
-    return device_list, presets
+    device_info = pd.read_csv("lista_urzadzen.csv", index_col=1)
+    
+    return device_list, presets, device_info
     
     
 def get_table_download_link(df, nazwa_pliku):
@@ -38,6 +40,19 @@ def get_table_download_link(df, nazwa_pliku):
     href = f'<a href="data:file/csv;base64,{b64}" download="{nazwa_pliku}.csv">Download stats table</a>'
     
     return href
+    
+def get_table_download_link_excel(df, nazwa_pliku):  
+    output = io.BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='Sheet1', index=False)
+    writer.save()
+    excel_data = output.getvalue()
+    b64 = base64.b64encode(excel_data)
+    payload = b64.decode()
+    html = f'<a href="data:text/xlsx;base64,{payload}" download="{nazwa_pliku}.xlsx">Pobierz dane z dnia</a>'
+    #html = f'<a href="data:file/csv;base64,{b64}" download="{nazwa_pliku}.csv">Download stats table</a>'
+    #html = html.format(payload=payload,title=title,filename=filename)
+    return html
     
 def download_data(url, haslo=st.secrets['password'], login=st.secrets['username'], retry=5):
 
@@ -136,21 +151,89 @@ def prepare_data(date, config, xt_to_V=200):
             diagnostyka.dodaj_czujnik(CzujnikWentylatora(None, nazwa=sensor, lin_mul=cfg["read_to_unit"], offset=cfg["offset"],
                                                     measured=cfg['measured'], desc=cfg['description'], unit=cfg["unit"], dt_series=date_time))
                                                     
-    return diagnostyka
+    return diagnostyka, date_time
     
 
-def mean_table(diagnostics):
+def mean_table(diagnostics, sigA, sigB):
 
     table = {
         "typ pomiaru":[],
         "średnia":[]
     }
     
-    for sensor in diagnostics.lista_czujnikow:
+    for sensor in diagnostics.lista_czujnikow[:-1]:
         table["typ pomiaru"].append(f"{sensor.measured} [{sensor.unit}]")
         table["średnia"].append(sensor.value_series.mean())
-        
+    
+    table["typ pomiaru"].append(f"Ciśnienie tłoczenia [Pa]")
+    table["typ pomiaru"].append(f"Wilgotność [%]")
+    table["średnia"].append(np.mean(sigA))
+    table["średnia"].append(np.mean(sigB))
+    
     return pd.DataFrame(table).set_index("typ pomiaru").round(1).astype(str)
+
+
+def tabela_info(dev_info, dev):
+    #info
+    dev=int(dev)
+    
+    table = {
+        "typ pomiaru":[],
+        dev:[]
+    }
+    
+    table["typ pomiaru"].append("Lokalizacja")
+    table[dev].append(dev_info.loc[dev]["lokalizacja"])
+    
+    table["typ pomiaru"].append("Klient")
+    table[dev].append(dev_info.loc[dev]["klient"])
+    
+    return pd.DataFrame(table).set_index("typ pomiaru")
+    
+    
+    
+def separate_signals(signal, dt_series=None, window=15):
+    '''
+    Zwraca 2 sygnaly na podstawie jednego sygnalu na zasadzie wyznaczania max i min wartosci z okna o szerokosci "window":
+    - sygnal A - minimum wartosc z okna
+    - sygnal B - maksymalna wartosc z okna
+    
+    jesli podane sa dane sygnalu czasowego (dt_series) dodatkowo zwraca skojarzone z sygnalami A i B probki z tych danych
+    
+    signal <list type>
+    dane sygnalu z którego mają być wydzielone sygnaly max i min
+    
+    dt_series <list type> (default: None)
+    skojarzone z sygnalem "signal" dane
+    
+    window <number> (default:15)
+    szerokosc okien z których bedzie wyciagany max i min
+    '''
+    
+    sig_len = len(signal)
+    #print(sig_len)
+    
+    sig_A, sig_B = [], []
+    
+    if dt_series is not None:
+        sig_A_dt, sig_B_dt = [], []
+    
+    for i in range(0, sig_len, window):
+        
+        sig_temp = signal[i:min(sig_len-1, i+window)]
+        
+        sig_A.append(min(sig_temp))
+        sig_B.append(max(sig_temp))
+        
+        if dt_series is not None:
+            sig_A_dt.append(dt_series[np.argmin(sig_temp)+i])
+            sig_B_dt.append(dt_series[np.argmax(sig_temp)+i])
+    
+    if dt_series is None:
+        return sig_A, sig_B
+        
+    else:
+        return (sig_A, sig_A_dt), (sig_B, sig_B_dt)
     
     
 def wykres(czujnik, filtruj=False):
@@ -187,7 +270,7 @@ def wykres(czujnik, filtruj=False):
 ## MAIN ##
     
 
-device_list, presets = init()
+device_list, presets, device_info = init()
 
 st.set_page_config(layout="wide", page_title='Dashboard eksploatacyjny')
     
@@ -195,15 +278,38 @@ c1,c2,c3 = st.columns((1,2,2))
 
 device = c1.selectbox("Wybierz urządzenie", device_list, help="Wybierz urządzenie którego dane chcesz wyświetlić")
 
+c1.table(tabela_info(device_info, device))
+
 data = c1.date_input("Wybierz datę", value=dt.date.today(), min_value=dt.date(2021,7,1), max_value=dt.date.today(), help="Wybierz dzień który chcesz wyświetlić")
 
 device_config = presets[device_list[device]['lp']]
 
-system_diagnostyki = prepare_data(data, device_config)
+system_diagnostyki, dt_series = prepare_data(data, device_config)
+
+if system_diagnostyki.lista_czujnikow[-1].value_series is not None:
+    (sig_A, sig_A_dt), (sig_B, sig_B_dt) = separate_signals(system_diagnostyki.lista_czujnikow[-1].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-1].dt_series.values, window=128)
+else:
+    (sig_A, sig_A_dt), (sig_B, sig_B_dt) = (None, None), (None, None)
 
 plot_real = c1.checkbox("Rysuj niefiltrowane dane", help="Tymczasowa opcja wyboru w celu pokazania stopnia filtrowania oryginalnych danych")
 
-c2.table(mean_table(system_diagnostyki))
+download_filter = c1.checkbox("Pobierz filtrowane dane", help="Jeśli zaznaczone dane będą filtorwane tak jak do wykresów przed pobraniem")
+
+c2.table(mean_table(system_diagnostyki, sig_A, sig_B))
+
+df_out = pd.DataFrame()
+for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-1]):
+    if i == 0 and dt_series is not None:
+        df_out["Data"] = dt_series.dt.date
+        df_out["Czas"] = dt_series.dt.time
+    if download_filter:
+        df_out[sensor.nazwa] = savgol_filter(sensor.value_series, 101, 1)
+        df_out[sensor.nazwa] = df_out[sensor.nazwa].round(1)
+    else:
+        df_out[sensor.nazwa] = sensor.value_series.round(1)
+    
+
+c1.markdown(get_table_download_link_excel(df_out, f'{device}_{data}'), unsafe_allow_html=True)
 
 c3.table(pd.DataFrame({"i":["TBC" for x  in range(7)], "wskaźniki eksploatacyjne":["-" for x in range(7)]}).set_index("i"))
 
@@ -217,62 +323,7 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-1]):
     
     cols[i%3].write(temp_fig)
     
-#st.help(st.selectbox)
-
-
-# exp = st.expander("test")
-
-# c1, c2 = exp.columns((1,1))
-
-# c1.write("test")
-# c2.write("Test")
-
-# TEST ZONE
-def separate_signals(signal, dt_series=None, window=15):
-    '''
-    Zwraca 2 sygnaly na podstawie jednego sygnalu na zasadzie wyznaczania max i min wartosci z okna o szerokosci "window":
-    - sygnal A - minimum wartosc z okna
-    - sygnal B - maksymalna wartosc z okna
-    
-    jesli podane sa dane sygnalu czasowego (dt_series) dodatkowo zwraca skojarzone z sygnalami A i B probki z tych danych
-    
-    signal <list type>
-    dane sygnalu z którego mają być wydzielone sygnaly max i min
-    
-    dt_series <list type> (default: None)
-    skojarzone z sygnalem "signal" dane
-    
-    window <number> (default:15)
-    szerokosc okien z których bedzie wyciagany max i min
-    '''
-    
-    sig_len = len(signal)
-    print(sig_len)
-    
-    sig_A, sig_B = [], []
-    
-    if dt_series is not None:
-        sig_A_dt, sig_B_dt = [], []
-    
-    for i in range(0, sig_len, window):
-        
-        sig_temp = signal[i:min(sig_len-1, i+window)]
-        
-        sig_A.append(min(sig_temp))
-        sig_B.append(max(sig_temp))
-        
-        if dt_series is not None:
-            sig_A_dt.append(dt_series[np.argmin(sig_temp)+i])
-            sig_B_dt.append(dt_series[np.argmax(sig_temp)+i])
-    
-    if dt_series is None:
-        return sig_A, sig_B
-        
-    else:
-        return (sig_A, sig_A_dt), (sig_B, sig_B_dt)
-        
-        
-(sig_A, sig_A_dt), (sig_B, sig_B_dt) = separate_signals(system_diagnostyki.lista_czujnikow[-1].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-1].dt_series.values, window=128)
+# IN06
 
 fig, ax = plt.subplots(figsize=(8,5))
     
