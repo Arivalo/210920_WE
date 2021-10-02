@@ -165,10 +165,11 @@ def mean_table(diagnostics, sigA, sigB):
         table["typ pomiaru"].append(f"{sensor.measured} [{sensor.unit}]")
         table["średnia"].append(sensor.value_series.mean())
     
-    table["typ pomiaru"].append(f"Ciśnienie tłoczenia [Pa]")
-    table["typ pomiaru"].append(f"Wilgotność [%]")
-    table["średnia"].append(np.mean(sigA))
-    table["średnia"].append(np.mean(sigB))
+    if sigA is not None and sigB is not None:
+        table["typ pomiaru"].append(f"Ciśnienie tłoczenia [Pa]")
+        table["typ pomiaru"].append(f"Wilgotność [%]")
+        table["średnia"].append(np.mean(sigA))
+        table["średnia"].append(np.mean(sigB))
     
     return pd.DataFrame(table).set_index("typ pomiaru").round(1).astype(str)
 
