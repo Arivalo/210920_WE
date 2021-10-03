@@ -319,7 +319,7 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:]):
     if i == 0 and dt_series is not None:
         df_out["Data"] = dt_series.dt.date
         df_out["Czas"] = dt_series.dt.time
-    if download_filter:
+    if download_filter and sensor is not system_diagnostyki.lista_czujnikow[-1]:
         df_out[sensor.nazwa] = savgol_filter(sensor.value_series, 101, 1)
         df_out[sensor.nazwa] = df_out[sensor.nazwa].round(1)
     else:
