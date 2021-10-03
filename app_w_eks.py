@@ -41,17 +41,29 @@ def get_table_download_link(df, nazwa_pliku):
     
     return href
     
-def get_table_download_link_excel(df, nazwa_pliku):  
+def get_table_download_link_excel(df, nazwa_pliku, dev_conf):
+
+    rename_dict = {xt:f"{xt[-5:]} {dev_conf['config'][xt]['measured']} [{dev_conf['config'][xt]['unit']}]" for xt in dev_conf["config"]}
+    
+    df = df.rename(columns=rename_dict)
+    
     output = io.BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Sheet1', index=False)
+    workbook=writer.book
+    worksheet = writer.sheets['Sheet1']
+    
+    format = workbook.add_format({'text_wrap': True})
+    
+    for col_num, value in enumerate(df.columns.values):
+        worksheet.write(0, col_num + 1, value, format)
+    
     writer.save()
     excel_data = output.getvalue()
     b64 = base64.b64encode(excel_data)
     payload = b64.decode()
     html = f'<a href="data:text/xlsx;base64,{payload}" download="{nazwa_pliku}.xlsx">Pobierz dane z dnia</a>'
-    #html = f'<a href="data:file/csv;base64,{b64}" download="{nazwa_pliku}.csv">Download stats table</a>'
-    #html = html.format(payload=payload,title=title,filename=filename)
+    
     return html
     
 def download_data(url, haslo=st.secrets['password'], login=st.secrets['username'], retry=5):
@@ -284,6 +296,7 @@ c1.table(tabela_info(device_info, device))
 data = c1.date_input("Wybierz datę", value=dt.date.today(), min_value=dt.date(2021,7,1), max_value=dt.date.today(), help="Wybierz dzień który chcesz wyświetlić")
 
 device_config = presets[device_list[device]['lp']]
+#st.write(device_config)
 
 system_diagnostyki, dt_series = prepare_data(data, device_config)
 
@@ -302,7 +315,7 @@ download_filter = c1.checkbox("Pobierz filtrowane dane", help="Jeśli zaznaczone
 c2.table(mean_table(system_diagnostyki, sig_A, sig_B))
 
 df_out = pd.DataFrame()
-for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-1]):
+for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:]):
     if i == 0 and dt_series is not None:
         df_out["Data"] = dt_series.dt.date
         df_out["Czas"] = dt_series.dt.time
@@ -313,9 +326,9 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-1]):
         df_out[sensor.nazwa] = sensor.value_series.round(1)
     
 
-c1.markdown(get_table_download_link_excel(df_out, f'{device}_{data}'), unsafe_allow_html=True)
+c1.markdown(get_table_download_link_excel(df_out, f'{device}_{data}', device_config), unsafe_allow_html=True)
 
-c3.table(pd.DataFrame({"i":["TBC" for x  in range(7)], "wskaźniki eksploatacyjne":["-" for x in range(7)]}).set_index("i"))
+c3.table(pd.DataFrame({"i":["TBC" for x  in range(8)], "wskaźniki eksploatacyjne":["-" for x in range(8)]}).set_index("i"))
 
 
 ## WYKRESY
