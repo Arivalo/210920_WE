@@ -326,6 +326,7 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:]):
         else:
             df_out[sensor.nazwa] = df_out[sensor.nazwa].round(1)
     else:
+        df_out[sensor.nazwa] = sensor.value_series
         if i==3:
             df_out[sensor.nazwa] = df_out[sensor.nazwa].round(2)
         else:
