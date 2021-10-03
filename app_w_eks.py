@@ -56,7 +56,7 @@ def get_table_download_link_excel(df, nazwa_pliku, dev_conf):
     format = workbook.add_format({'text_wrap': True})
     
     for col_num, value in enumerate(df.columns.values):
-        worksheet.write(0, col_num + 1, value, format)
+        worksheet.write(0, col_num, value, format)
     
     writer.save()
     excel_data = output.getvalue()
@@ -324,6 +324,15 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:]):
         df_out[sensor.nazwa] = df_out[sensor.nazwa].round(1)
     else:
         df_out[sensor.nazwa] = sensor.value_series.round(1)
+
+if sig_A_dt is not None:
+    df_temp_A = pd.DataFrame({"Ciśnienie tłoczenia [Pa]":sig_A, "Czas":pd.to_datetime(pd.Series(sig_A_dt)).dt.time})
+    df_temp_B = pd.DataFrame({"Wilgotność [%]":sig_B, "Czas":pd.to_datetime(pd.Series(sig_B_dt)).dt.time})
+
+    df_out = df_out.merge(df_temp_A, how="left", on="Czas")
+    df_out = df_out.merge(df_temp_B, how="left", on="Czas")
+
+    df_out = df_out.ffill().bfill()
     
 
 c1.markdown(get_table_download_link_excel(df_out, f'{device}_{data}', device_config), unsafe_allow_html=True)
