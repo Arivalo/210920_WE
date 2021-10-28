@@ -156,7 +156,7 @@ def prepare_data(date, config, xt_to_V=200):
         cfg = config["config"][sensor]
         
         try:
-            diagnostyka.dodaj_czujnik(CzujnikWentylatora(data[sensor]/200, nazwa=sensor, lin_mul=cfg["read_to_unit"], offset=cfg["offset"],
+            diagnostyka.dodaj_czujnik(CzujnikWentylatora(data[sensor[:10]]/200, nazwa=sensor, lin_mul=cfg["read_to_unit"], offset=cfg["offset"],
                                                     measured=cfg['measured'], desc=cfg['description'], unit=cfg["unit"], dt_series=date_time))
             
         except KeyError:
@@ -302,11 +302,19 @@ system_diagnostyki, dt_series = prepare_data(data, device_config)
 
 if system_diagnostyki.lista_czujnikow[-1].value_series is not None:
     try:
-        (sig_A, sig_A_dt), (sig_B, sig_B_dt) = separate_signals(system_diagnostyki.lista_czujnikow[-1].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-1].dt_series.values, window=128)
+        (sig_A, sig_A_dt), (_, _) = separate_signals(system_diagnostyki.lista_czujnikow[-1].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-1].dt_series.values, window=128)
     except AttributeError:
-        (sig_A, sig_A_dt), (sig_B, sig_B_dt) = (None, None), (None, None)
+        (sig_A, sig_A_dt) = (None, None)
 else:
-    (sig_A, sig_A_dt), (sig_B, sig_B_dt) = (None, None), (None, None)
+    (sig_A, sig_A_dt) = (None, None)
+    
+if system_diagnostyki.lista_czujnikow[-2].value_series is not None:
+    try:
+        (_, _), (sig_B, sig_B_dt) = separate_signals(system_diagnostyki.lista_czujnikow[-2].value_series.values, dt_series=system_diagnostyki.lista_czujnikow[-2].dt_series.values, window=128)
+    except AttributeError:
+        (sig_B, sig_B_dt) = (None, None)
+else:
+    (sig_B, sig_B_dt) = (None, None)
 
 plot_real = c1.checkbox("Rysuj niefiltrowane dane", help="Tymczasowa opcja wyboru w celu pokazania stopnia filtrowania oryginalnych danych")
 
@@ -351,7 +359,7 @@ c3.table(pd.DataFrame({"i":["TBC" for x  in range(8)], "wskaźniki eksploatacyjn
 
 cols = st.columns((1,1,1))
 
-for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-1]):
+for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-2]):
     temp_fig = wykres(sensor, filtruj=plot_real)
     
     cols[i%3].write(temp_fig)
@@ -365,8 +373,8 @@ xfmt = mdates.DateFormatter('%H:%M')
 if plot_real:
     ax.plot(system_diagnostyki.lista_czujnikow[-1].dt_series.values, system_diagnostyki.lista_czujnikow[-1].value_series.values, label='oryginalny sygnał', c='gray', alpha=0.6)
 
-ax.plot(sig_A_dt, sig_A, label='sygnał A')
-ax.plot(sig_B_dt, sig_B, label='signał B')
+ax.plot(sig_A_dt, sig_A, label=f"{system_diagnostyki.lista_czujnikow[-1].measured} [{system_diagnostyki.lista_czujnikow[-1].unit}]")
+ax.plot(sig_B_dt, sig_B, label=f"{system_diagnostyki.lista_czujnikow[-2].measured} [{system_diagnostyki.lista_czujnikow[-2].unit}]")
 
 plt.title("XT_UAIN_06")
 ax.set_xlabel("Czas")
