@@ -173,15 +173,20 @@ def mean_table(diagnostics, sigA, sigB):
         "średnia":[]
     }
     
-    for sensor in diagnostics.lista_czujnikow[:-1]:
+    for sensor in diagnostics.lista_czujnikow[:-2]:
         table["typ pomiaru"].append(f"{sensor.measured} [{sensor.unit}]")
         table["średnia"].append(sensor.value_series.mean())
+        
+    for sensor, sig in zip(diagnostics.lista_czujnikow[-2:], [sigB, sigA]):
+        table["typ pomiaru"].append(f"{sensor.measured} [{sensor.unit}]")
+        table["średnia"].append(pd.Series(sig).mean()) # to jest głupie ale działa
+                                                       # np.mean nie działa
     
-    if sigA is not None and sigB is not None:
-        table["typ pomiaru"].append(f"Ciśnienie tłoczenia [Pa]")
-        table["typ pomiaru"].append(f"Wilgotność [%]")
-        table["średnia"].append(pd.Series(sigA).mean())
-        table["średnia"].append(pd.Series(sigB).mean())
+    # if sigA is not None and sigB is not None:
+        # table["typ pomiaru"].append(f"Ciśnienie tłoczenia [Pa]")
+        # table["typ pomiaru"].append(f"Wilgotność [%]")
+        # table["średnia"].append(pd.Series(sigA).mean())
+        # table["średnia"].append(pd.Series(sigB).mean())
     
     return pd.DataFrame(table).set_index("typ pomiaru").round(1).astype(str)
 
@@ -366,30 +371,60 @@ for i, sensor in enumerate(system_diagnostyki.lista_czujnikow[:-2]):
     
 # IN06
 
-fig, ax = plt.subplots(figsize=(8,5))
+
     
 xfmt = mdates.DateFormatter('%H:%M')
 
+# if plot_real:
+    # ax.plot(system_diagnostyki.lista_czujnikow[-1].dt_series.values, system_diagnostyki.lista_czujnikow[-1].value_series.values, label='oryginalny sygnał', c='gray', alpha=0.6)
+
+fig_1, ax = plt.subplots(figsize=(8,5))
+
 if plot_real:
-    ax.plot(system_diagnostyki.lista_czujnikow[-1].dt_series.values, system_diagnostyki.lista_czujnikow[-1].value_series.values, label='oryginalny sygnał', c='gray', alpha=0.6)
+    ax.plot(system_diagnostyki.lista_czujnikow[-2].dt_series, system_diagnostyki.lista_czujnikow[-2].value_series, c='gray', alpha=0.6)
 
-ax.plot(sig_A_dt, sig_A, label=f"{system_diagnostyki.lista_czujnikow[-1].measured} [{system_diagnostyki.lista_czujnikow[-1].unit}]")
-ax.plot(sig_B_dt, sig_B, label=f"{system_diagnostyki.lista_czujnikow[-2].measured} [{system_diagnostyki.lista_czujnikow[-2].unit}]")
+ax.plot(sig_B_dt, sig_B)
 
-plt.title("XT_UAIN_06")
+plt.title(f"{system_diagnostyki.lista_czujnikow[-2].nazwa}")
 ax.set_xlabel("Czas")
-ax.set_ylabel(f"wilgotność/ciśnienie tłoczenia [%/Pa]")
-
-ax.xaxis.set_major_formatter(xfmt)
-
-plt.legend()
+ax.set_ylabel(f"{system_diagnostyki.lista_czujnikow[-2].measured} [{system_diagnostyki.lista_czujnikow[-2].unit}]")
 
 # poszerzenie limitu na y
 ylim = plt.ylim()
 ydelta = (ylim[1] - ylim[0])/2
 plt.ylim((ylim[0]-ydelta, ylim[-1]+ydelta))
 
-cols[0].write(fig)
+ax.xaxis.set_major_formatter(xfmt)
+
+plt.tight_layout()
+
+cols[0].write(fig_1)
+
+fig_2, ax = plt.subplots(figsize=(8,5))
+
+if plot_real:
+    ax.plot(system_diagnostyki.lista_czujnikow[-1].dt_series, system_diagnostyki.lista_czujnikow[-1].value_series, c='gray', alpha=0.6)
+
+ax.plot(sig_A_dt, sig_A)
+
+plt.title(f"{system_diagnostyki.lista_czujnikow[-1].nazwa}")
+ax.set_xlabel("Czas")
+ax.set_ylabel(f"{system_diagnostyki.lista_czujnikow[-1].measured} [{system_diagnostyki.lista_czujnikow[-1].unit}]")
+
+# poszerzenie limitu na y
+ylim = plt.ylim()
+ydelta = (ylim[1] - ylim[0])/2
+plt.ylim((ylim[0]-ydelta, ylim[-1]+ydelta))
+
+ax.xaxis.set_major_formatter(xfmt)
+
+plt.tight_layout()
+
+cols[1].write(fig_2)
+
+#plt.legend()
+
+
     
 
 
